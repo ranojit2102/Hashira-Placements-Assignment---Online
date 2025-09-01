@@ -1,0 +1,122 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// Convert string number from given base to decimal
+long long toDecimal(const string &val, int base) {
+    long long num = 0;
+    for (char c : val) {
+        int digit = (isdigit(c) ? c - '0' : toupper(c) - 'A' + 10);
+        num = num * base + digit;
+    }
+    return num;
+}
+
+// Gaussian elimination to solve system of linear equations
+vector<double> gauss(vector<vector<double>> A, vector<double> b) {
+    int n = A.size();
+    for (int i = 0; i < n; i++) {
+        // Pivot
+        int maxRow = i;
+        for (int k = i + 1; k < n; k++)
+            if (fabs(A[k][i]) > fabs(A[maxRow][i]))
+                maxRow = k;
+        swap(A[i], A[maxRow]);
+        swap(b[i], b[maxRow]);
+
+        // Eliminate
+        for (int k = i + 1; k < n; k++) {
+            double factor = A[k][i] / A[i][i];
+            for (int j = i; j < n; j++)
+                A[k][j] -= factor * A[i][j];
+            b[k] -= factor * b[i];
+        }
+    }
+
+    // Back substitution
+    vector<double> x(n);
+    for (int i = n - 1; i >= 0; i--) {
+        x[i] = b[i];
+        for (int j = i + 1; j < n; j++)
+            x[i] -= A[i][j] * x[j];
+        x[i] /= A[i][i];
+    }
+    return x;
+}
+
+int main() {
+    // Hardcoded JSON-like string (you can read it from stdin if needed)
+    string input = R"({
+        "keys": { "n": 4, "k": 3 },
+        "1": { "base": "10", "value": "4" },
+        "2": { "base": "2", "value": "111" },
+        "3": { "base": "10", "value": "12" },
+        "6": { "base": "4", "value": "213" }
+    })";
+
+    // Extract n and k
+    int n = 0, k = 0;
+    {
+        size_t pos_n = input.find("\"n\"");
+        if (pos_n != string::npos) {
+            size_t colon = input.find(":", pos_n);
+            n = stoi(input.substr(colon + 1));
+        }
+        size_t pos_k = input.find("\"k\"");
+        if (pos_k != string::npos) {
+            size_t colon = input.find(":", pos_k);
+            k = stoi(input.substr(colon + 1));
+        }
+    }
+
+    // Extract all bases and values
+    vector<long long> roots;
+    size_t pos = 0;
+    while ((pos = input.find("\"base\"", pos)) != string::npos) {
+        size_t colon1 = input.find(":", pos);
+        size_t comma = input.find(",", colon1);
+        int base = stoi(input.substr(colon1 + 1, comma - colon1 - 1));
+
+        size_t pos_val = input.find("\"value\"", comma);
+        size_t colon2 = input.find(":", pos_val);
+        size_t quote1 = input.find("\"", colon2 + 1);
+        size_t quote2 = input.find("\"", quote1 + 1);
+        string val = input.substr(quote1 + 1, quote2 - quote1 - 1);
+
+        roots.push_back(toDecimal(val, base));
+        pos = quote2;
+    }
+
+    sort(roots.begin(), roots.end());
+    if ((int)roots.size() > k) roots.resize(k);
+
+    // Polynomial degree = k-1
+    int m = k - 1;
+    vector<vector<double>> A(k, vector<double>(k));
+    vector<double> b(k, 0.0);
+
+    // Vandermonde matrix system
+    for (int i = 0; i < k; i++) {
+        double x = roots[i];
+        double power = 1;
+        for (int j = 0; j < k; j++) {
+            A[i][j] = power;
+            power *= x;
+        }
+        b[i] = 0; // polynomial must vanish at root
+    }
+
+    // To avoid trivial all-zero polynomial, set last equation as passing through (0,1)
+    for (int j = 0; j < k; j++) A[k-1][j] = (j == 0 ? 1 : 0);
+    b[k-1] = 1;
+
+    // Solve system
+    vector<double> coeffs = gauss(A, b);
+
+    cout << "Polynomial coefficients (constant term to highest):\n";
+    for (double c : coeffs) {
+        cout << c << " ";
+    }
+    cout << endl;
+
+    return 0;
+}
