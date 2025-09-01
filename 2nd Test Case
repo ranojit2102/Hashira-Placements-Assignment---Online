@@ -1,0 +1,119 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// Convert string number from given base to decimal (supports digits+letters)
+long long toDecimal(const string &val, int base) {
+    long long num = 0;
+    for (char c : val) {
+        int digit;
+        if (isdigit(c)) digit = c - '0';
+        else digit = toupper(c) - 'A' + 10;
+        num = num * base + digit;
+    }
+    return num;
+}
+
+// Gaussian elimination to solve Ax=b
+vector<long double> gauss(vector<vector<long double>> A, vector<long double> b) {
+    int n = A.size();
+    for (int i = 0; i < n; i++) {
+        // Pivot
+        int maxRow = i;
+        for (int k = i + 1; k < n; k++)
+            if (fabsl(A[k][i]) > fabsl(A[maxRow][i]))
+                maxRow = k;
+        swap(A[i], A[maxRow]);
+        swap(b[i], b[maxRow]);
+
+        // Eliminate
+        for (int k = i + 1; k < n; k++) {
+            if (A[i][i] == 0) continue;
+            long double factor = A[k][i] / A[i][i];
+            for (int j = i; j < n; j++)
+                A[k][j] -= factor * A[i][j];
+            b[k] -= factor * b[i];
+        }
+    }
+
+    // Back substitution
+    vector<long double> x(n);
+    for (int i = n - 1; i >= 0; i--) {
+        x[i] = b[i];
+        for (int j = i + 1; j < n; j++)
+            x[i] -= A[i][j] * x[j];
+        if (A[i][i] != 0) x[i] /= A[i][i];
+    }
+    return x;
+}
+
+int main() {
+    // Read entire input JSON from stdin
+    string input, line;
+    while (getline(cin, line)) input += line;
+
+    // Extract n and k
+    int n = 0, k = 0;
+    {
+        size_t pos_n = input.find("\"n\"");
+        if (pos_n != string::npos) {
+            size_t colon = input.find(":", pos_n);
+            n = stoi(input.substr(colon + 1));
+        }
+        size_t pos_k = input.find("\"k\"");
+        if (pos_k != string::npos) {
+            size_t colon = input.find(":", pos_k);
+            k = stoi(input.substr(colon + 1));
+        }
+    }
+
+    // Extract all roots
+    vector<long long> roots;
+    size_t pos = 0;
+    while ((pos = input.find("\"base\"", pos)) != string::npos) {
+        size_t colon1 = input.find(":", pos);
+        size_t comma = input.find(",", colon1);
+        int base = stoi(input.substr(colon1 + 1, comma - colon1 - 1));
+
+        size_t pos_val = input.find("\"value\"", comma);
+        size_t colon2 = input.find(":", pos_val);
+        size_t quote1 = input.find("\"", colon2 + 1);
+        size_t quote2 = input.find("\"", quote1 + 1);
+        string val = input.substr(quote1 + 1, quote2 - quote1 - 1);
+
+        roots.push_back(toDecimal(val, base));
+        pos = quote2;
+    }
+
+    // Sort and take first k roots
+    sort(roots.begin(), roots.end());
+    if ((int)roots.size() > k) roots.resize(k);
+
+    // Polynomial degree = k-1
+    vector<vector<long double>> A(k, vector<long double>(k));
+    vector<long double> b(k, 0.0);
+
+    // Build Vandermonde system
+    for (int i = 0; i < k; i++) {
+        long double x = roots[i];
+        long double power = 1;
+        for (int j = 0; j < k; j++) {
+            A[i][j] = power;
+            power *= x;
+        }
+        b[i] = 0; // polynomial vanishes at root
+    }
+
+    // Replace last equation with P(0)=1 to avoid trivial solution
+    for (int j = 0; j < k; j++) A[k - 1][j] = (j == 0 ? 1 : 0);
+    b[k - 1] = 1;
+
+    // Solve
+    vector<long double> coeffs = gauss(A, b);
+
+    // Print results
+    cout << fixed << setprecision(10);
+    cout << "Polynomial coefficients (c0 + c1*x + c2*x^2 ...):\n";
+    for (auto c : coeffs) cout << c << " ";
+    cout << endl;
+    return 0;
+}
